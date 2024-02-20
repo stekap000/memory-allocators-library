@@ -3,9 +3,6 @@
 
 #include <stdint.h>
 
-
-#include <stdio.h>
-
 #define MALAPI static
 
 #define MAL_KB(n) (1024*(n))
@@ -40,6 +37,10 @@ MALAPI void *mal_general_alloc();
 MALAPI void *mal_general_realloc();
 MALAPI void mal_general_reset();
 MALAPI void mal_general_free();
+
+#endif //MAL_H
+
+#ifdef MAL_IMPLEMENTATION
 
 #if defined(_WIN32)
 #include <windows.h> // For system info we just need sysinfoapi.h
@@ -79,6 +80,8 @@ MALAPI int mal_pages_free(void *address) {
 #else
 #endif
 
+#endif //MAL_IMPLEMENTATION
+
 // NOTE: Try to do it with the least amount of indirection as possible
 
 // TODO: Linear allocator (freeing can only be done fully as a complete reset)
@@ -88,8 +91,3 @@ MALAPI int mal_pages_free(void *address) {
 // TODO: Abstract allocator properties to allow customization
 // TODO: Abstract allocator properties to create specific allocator variations
 
-#endif //MAL_H
-
-#ifdef MAL_IMPLEMENTATION
-
-#endif //MAL_IMPLEMENTATION
