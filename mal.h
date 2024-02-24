@@ -17,6 +17,7 @@ typedef struct {
 
 typedef struct {
 	void *start;
+	void *free_start;
 	uint32_t number_of_taken_slots;
 	uint32_t slot_size;
 	uint32_t capacity;
@@ -130,10 +131,15 @@ MALAPI void mal_arena_delete(mal_Arena *arena) {
 }
 
 MALAPI mal_Pool mal_pool_create(uint32_t capacity, uint32_t item_size) {
+	// Minimal size for item is the size we need to keep offset to next free element.
+	// For now, it is sizeof uint32_t.
+	if(item_size < sizeof(uint32_t)) item_size = sizeof(uint32_t);
+	
 	mal_Pool pool = {0};
 	pool.start = mal_raw_alloc(capacity);
-	// For now, return empty arena if page allocation fails
+	// For now, return empty pool if page allocation fails
 	if(pool.start == 0) return pool;
+	pool.free_start = pool.start;
 	pool.capacity = mal_ceil_to_page_boundary(capacity);
 	pool.slot_size = item_size;
 	return pool;
@@ -141,13 +147,32 @@ MALAPI mal_Pool mal_pool_create(uint32_t capacity, uint32_t item_size) {
 
 //typedef struct {
 //	void *start;
+//  void *free_start;
 //	uint32_t number_of_taken_slots;
 //	uint32_t slot_size;
 //	uint32_t capacity;
 //} mal_Pool;
 
+// If the element is taken then there is no need for it to possess pointer to next
+// free element. Because of this, we can allow full item_size for object when it is
+// taken and, in the case is it freed, we can use portion of it as pointer.
+
+// Pointer moves if the freed element in closer to the beginning
+// In other words, it always points to the first free element
+
+// 0 0 0 0 0 0 0 0 0 0 0
+// - - - - - - - - - - -
+
+// x x x x x x x 0 0 0 0
+// o o o o o o o | - - -
+
+// x x 5 x x x x 0 0 0 0 if the address is less than current pointer (move)
+// o o | o o o o - - - -
+
+// x x 3 x x 2 x 0 0 0 0 if the address is greate than current pointer (don't move)
+// o o | o o - o - - - -
+
 MALAPI void *mal_pool_alloc(mal_Pool *pool) {
-	
 	
 	return 0;
 }
@@ -178,6 +203,8 @@ MALAPI void mal_pool_delete(mal_Pool *pool) {
 // NOTE: Try to do it with the least amount of indirection as possible
 
 // TODO: Fixed size block allocator (pool allocator)
+// TODO: Fixed size block allcoator that fills gaps with the last element but
+// at the expense of additional function management from the user
 // TODO: Allow arena and pool grow (maybe allow usage without passing sizes?, although
 // this would be annoying to efficiently predict in general case)
 // TODO: General size block allocator
