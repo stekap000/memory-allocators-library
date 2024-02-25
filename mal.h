@@ -30,6 +30,12 @@ typedef struct {
 	uint32_t capacity;
 } mal_General_Pool;
 
+typedef struct {
+	void *start;
+	// ...
+	uint32_t capacity;
+} mal_Stack;
+
 // OS dependent
 //===============================
 MALAPI uint32_t mal_get_system_page_size();
@@ -57,6 +63,12 @@ MALAPI void *mal_general_realloc();
 MALAPI void mal_general_reset(mal_General_Pool *general_pool);
 MALAPI void mal_general_free(mal_General_Pool *general_pool);
 MALAPI void mal_general_destroy(mal_General_Pool *general_pool);
+
+MALAPI void *mal_stack_create(uint32_t capacity);
+MALAPI void *mal_stack_alloc(mal_Stack *stack, uint32_t size);
+MALAPI void mal_stack_reset(mal_Stack *stack);
+MALAPI void mal_stack_free(mal_Stack *stack);
+MALAPI void mal_stack_destroy(mal_Stack *stack);
 
 #endif //MAL_H
 
@@ -180,6 +192,9 @@ MALAPI mal_Pool mal_pool_create(uint32_t capacity, uint32_t slot_size) {
 // x x 3 x x 2 x 0 0 0 0 if the address is greate than current pointer (don't move)
 // o o | o o - o - - - -
 
+// x x 2 x 3 x x 0 0 0 0
+// o o | o - o o - - - -
+
 MALAPI void *mal_pool_alloc(mal_Pool *pool) {
 	if(pool->number_of_taken_slots * pool->slot_size == pool->capacity) return 0;
 	   
@@ -204,6 +219,8 @@ MALAPI void mal_pool_reset(mal_Pool *pool) {
 	pool->number_of_taken_slots = 0;
 }
 
+// TODO: Handle pool free when address > free_start and there is at least one free
+// spot between address and free_start
 MALAPI void mal_pool_free(mal_Pool *pool, void *address) {
 	// TODO: Check if the given address is valid address that was allocated
 
