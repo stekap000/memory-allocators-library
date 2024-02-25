@@ -41,10 +41,10 @@ MALAPI void mal_arena_reset(mal_Arena *arena);
 MALAPI void mal_arena_delete();
 
 MALAPI mal_Pool mal_pool_create(uint32_t capacity, uint32_t item_size);
-MALAPI void *mal_pool_alloc();
+MALAPI void *mal_pool_alloc(mal_Pool *pool);
 MALAPI void *mal_pool_realloc();
-MALAPI void mal_pool_reset();
-MALAPI void mal_pool_free();
+MALAPI void mal_pool_reset(mal_Pool *pool);
+MALAPI void mal_pool_free(mal_Pool *pool, void *address);
 MALAPI void mal_pool_delete(mal_Pool *pool);
 
 MALAPI void *mal_general_alloc();
@@ -130,10 +130,12 @@ MALAPI void mal_arena_delete(mal_Arena *arena) {
 	arena->capacity = 0;
 }
 
-MALAPI mal_Pool mal_pool_create(uint32_t capacity, uint32_t item_size) {
+MALAPI mal_Pool mal_pool_create(uint32_t capacity, uint32_t slot_size) {
+	// TODO: Force slot_size to be divisor of capacity
+	
 	// Minimal size for item is the size we need to keep offset to next free element.
 	// For now, it is sizeof uint32_t.
-	if(item_size < sizeof(uint32_t)) item_size = sizeof(uint32_t);
+	if(slot_size < sizeof(uint32_t)) slot_size = sizeof(uint32_t);
 	
 	mal_Pool pool = {0};
 	pool.start = mal_raw_alloc(capacity);
@@ -141,7 +143,7 @@ MALAPI mal_Pool mal_pool_create(uint32_t capacity, uint32_t item_size) {
 	if(pool.start == 0) return pool;
 	pool.free_start = pool.start;
 	pool.capacity = mal_ceil_to_page_boundary(capacity);
-	pool.slot_size = item_size;
+	pool.slot_size = slot_size;
 	return pool;
 }
 
@@ -161,7 +163,7 @@ MALAPI mal_Pool mal_pool_create(uint32_t capacity, uint32_t item_size) {
 // In other words, it always points to the first free element
 
 // 0 0 0 0 0 0 0 0 0 0 0
-// - - - - - - - - - - -
+// | - - - - - - - - - -
 
 // x x x x x x x 0 0 0 0
 // o o o o o o o | - - -
@@ -173,29 +175,63 @@ MALAPI mal_Pool mal_pool_create(uint32_t capacity, uint32_t item_size) {
 // o o | o o - o - - - -
 
 MALAPI void *mal_pool_alloc(mal_Pool *pool) {
+	if(pool->number_of_taken_slots * pool->slot_size == pool->capacity) return 0;
+	   
+	uint32_t offset = *(uint32_t *)pool->free_start;
+	void *temp = pool->free_start;
+	pool->free_start = (unsigned char *)pool->free_start + ((offset + 1)* pool->slot_size);
+	pool->number_of_taken_slots++;
+
+	// TODO: Maybe memset allocated slot to 0
 	
-	return 0;
+	return temp;
 }
 
 MALAPI void *mal_pool_realloc() {
 	return 0;
 }
 
-MALAPI void mal_pool_reset() {
+MALAPI void mal_pool_reset(mal_Pool *pool) {
+	// TODO: Maybe memset everything to zero?
+	
+	pool->free_start = pool->start;
 	pool->number_of_taken_slots = 0;
-	// TODO: Addionally, we need to reset way of tracking free regions
 }
 
 MALAPI void mal_pool_free(mal_Pool *pool, void *address) {
-	
+	// TODO: Check if the given address is valid address that was allocated
+
+	// Same steps not factored out from branches since it is easier to follow what is happening without that.
+	if(address < pool->free_start) {
+		uint32_t diff = ((unsigned char *)pool->free_start - (unsigned char *)address) / pool->slot_size;
+		pool->free_start = address;
+		// (diff-1) because we use zero indexing in mal_pool_alloc when looking for next free element.
+		*(uint32_t *)pool->free_start = diff - 1;
+	}
+	else if(address > pool->free_start) {
+		uint32_t diff = ((unsigned char *)address - (unsigned char *)pool->free_start) / pool->slot_size;
+		*(uint32_t *)address = *(uint32_t *)pool->free_start - diff;
+		*(uint32_t *)pool->free_start = diff - 1;
+	}
+
+	pool->number_of_taken_slots--;
 }
 
 MALAPI void mal_pool_delete(mal_Pool *pool) {
 	mal_raw_free(pool->start);
 	pool->start = 0;
+	pool->free_start = 0;
 	pool->number_of_taken_slots = 0;
 	pool->slot_size = 0;
 	pool->capacity = 0;
+}
+
+// TODO: Remove these functions (just for testing)
+#include <stdio.h>
+void mal_pool_print(mal_Pool *pool, int num_slots) {
+	for(int i = 0; i < num_slots; ++i) {
+		printf("%x\n", *((uint32_t *)pool->start + i));
+	}
 }
 
 #endif //MAL_IMPLEMENTATION
