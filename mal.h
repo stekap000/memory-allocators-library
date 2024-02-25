@@ -1,6 +1,7 @@
 #ifndef MAL_H
 #define MAL_H
 
+// TODO: Maybe remove
 #include <stdint.h>
 
 #define MALAPI static
@@ -22,9 +23,12 @@ typedef struct {
 	uint32_t slot_size;
 	uint32_t capacity;
 } mal_Pool;
-// TODO: One way to keep track is through linked list or some analog over slots
-// Another way would be to do linear allocation over fixed slots and to cache
-// freed slots so that the can be reused later.
+
+typedef struct {
+	void *start;
+	void *free_start;
+	uint32_t capacity;
+} mal_General_Pool;
 
 // OS dependent
 //===============================
@@ -38,19 +42,21 @@ MALAPI uint32_t mal_ceil_to_page_boundary(uint32_t size);
 MALAPI mal_Arena mal_arena_create(uint32_t capacity);
 MALAPI void *mal_arena_alloc(mal_Arena *arena, uint32_t size);
 MALAPI void mal_arena_reset(mal_Arena *arena);
-MALAPI void mal_arena_delete();
+MALAPI void mal_arena_destroy();
 
 MALAPI mal_Pool mal_pool_create(uint32_t capacity, uint32_t item_size);
 MALAPI void *mal_pool_alloc(mal_Pool *pool);
-MALAPI void *mal_pool_realloc();
+MALAPI void *mal_pool_realloc(); // TODO: Implement
 MALAPI void mal_pool_reset(mal_Pool *pool);
 MALAPI void mal_pool_free(mal_Pool *pool, void *address);
-MALAPI void mal_pool_delete(mal_Pool *pool);
+MALAPI void mal_pool_destroy(mal_Pool *pool);
 
-MALAPI void *mal_general_alloc();
+MALAPI void *mal_general_create(uint32_t capacity);
+MALAPI void *mal_general_alloc(mal_General_Pool *general_pool, uint32_t size);
 MALAPI void *mal_general_realloc();
-MALAPI void mal_general_reset();
-MALAPI void mal_general_free();
+MALAPI void mal_general_reset(mal_General_Pool *general_pool);
+MALAPI void mal_general_free(mal_General_Pool *general_pool);
+MALAPI void mal_general_destroy(mal_General_Pool *general_pool);
 
 #endif //MAL_H
 
@@ -92,7 +98,7 @@ MALAPI int mal_raw_free(void *address) {
 
 #elif defined(__linux__)
 // TODO: Linux implementation of OS specific functions
-#endif
+#endif // OS definitions
 
 MALAPI uint32_t mal_ceil_to_page_boundary(uint32_t size) {
 	uint32_t page_size = mal_get_system_page_size();
@@ -122,7 +128,7 @@ MALAPI void mal_arena_reset(mal_Arena *arena) {
 	arena->size = 0;
 }
 
-MALAPI void mal_arena_delete(mal_Arena *arena) {
+MALAPI void mal_arena_destroy(mal_Arena *arena) {
 	// TODO: Maybe introduce check for the case when OS page free fails.
 	mal_raw_free(arena->start);
 	arena->start = 0;
@@ -217,7 +223,7 @@ MALAPI void mal_pool_free(mal_Pool *pool, void *address) {
 	pool->number_of_taken_slots--;
 }
 
-MALAPI void mal_pool_delete(mal_Pool *pool) {
+MALAPI void mal_pool_destroy(mal_Pool *pool) {
 	mal_raw_free(pool->start);
 	pool->start = 0;
 	pool->free_start = 0;
@@ -225,6 +231,13 @@ MALAPI void mal_pool_delete(mal_Pool *pool) {
 	pool->slot_size = 0;
 	pool->capacity = 0;
 }
+
+MALAPI void *mal_general_create(uint32_t capacity);
+MALAPI void *mal_general_alloc(mal_General_Pool *general_pool, uint32_t size);
+MALAPI void *mal_general_realloc();
+MALAPI void mal_general_reset(mal_General_Pool *general_pool);
+MALAPI void mal_general_free(mal_General_Pool *general_pool);
+MALAPI void mal_general_destroy(mal_General_Pool *general_pool);
 
 // TODO: Remove these functions (just for testing)
 #include <stdio.h>
@@ -238,12 +251,11 @@ void mal_pool_print(mal_Pool *pool, int num_slots) {
 
 // NOTE: Try to do it with the least amount of indirection as possible
 
-// TODO: Fixed size block allocator (pool allocator)
-// TODO: Fixed size block allcoator that fills gaps with the last element but
-// at the expense of additional function management from the user
+// TODO: General size block allocator
+
 // TODO: Allow arena and pool grow (maybe allow usage without passing sizes?, although
 // this would be annoying to efficiently predict in general case)
-// TODO: General size block allocator
+
 // TODO: Abstract allocator properties to allow customization
 // TODO: Abstract allocator properties to create specific allocator variations
 
