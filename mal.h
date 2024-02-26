@@ -209,7 +209,7 @@ MALAPI void mal_pool_reset(mal_Pool *pool) {
 MALAPI void mal_pool_free(mal_Pool *pool, void *address) {
 	// TODO: Check if the given address is valid address that was allocated
 
-	int diff = ((unsigned char *)pool->free_start - (unsigned char *)address) / pool->slot_size;
+	int diff = ((unsigned char *)pool->free_start - (unsigned char *)address) / (int)pool->slot_size;
 
 	pool->free_start = address;
 	*(int *)pool->free_start = diff - 1;
@@ -271,10 +271,10 @@ MALAPI void mal_stack_destroy(mal_Stack *stack) {
 void mal_pool_print(mal_Pool *pool, int num_slots) {
 	for(int i = 0; i < num_slots; ++i) {
 		printf("%2x %2x %2x %2x\n",
-			   *((unsigned char*)pool->start + i*4),
-			   *((unsigned char*)pool->start + i*4 + 1),
+			   *((unsigned char*)pool->start + i*4 + 3),
 			   *((unsigned char*)pool->start + i*4 + 2),
-			   *((unsigned char*)pool->start + i*4 + 3));
+			   *((unsigned char*)pool->start + i*4 + 1),
+			   *((unsigned char*)pool->start + i*4));
 		//printf("%p %x\n", (int *)pool->start + i, *((int *)pool->start + i));
 	}
 }
