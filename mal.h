@@ -1,8 +1,10 @@
 #ifndef MAL_H
 #define MAL_H
 
-// TODO: Maybe remove
-#include <stdint.h>
+#include <stdint.h> // TODO: Maybe remove
+#include <assert.h> // TODO: Maybe remove
+
+#define NOT_IMPLEMENTED(msg) assert(!(msg))
 
 #define MALAPI static
 
@@ -110,6 +112,20 @@ MALAPI int mal_raw_free(void *address) {
 
 #elif defined(__linux__)
 // TODO: Linux implementation of OS specific functions
+MALAPI uint32_t mal_get_system_page_size() {
+	NOT_IMPLEMENTED("Linux page size not implemented yet.");
+	return 0;
+}
+
+MALAPI void *mal_raw_alloc(size_t capacity) {
+	NOT_IMPLEMENTED("Linux pages alloc not implemented yet.");
+	return 0;
+}
+
+MALAPI int mal_raw_free(void *address) {
+	NOT_IMPLEMENTED("Linux pages free not implemented yet.");
+	return 0;
+
 #endif // OS definitions
 
 MALAPI uint32_t mal_ceil_to_page_boundary(uint32_t size) {
@@ -179,6 +195,7 @@ MALAPI void *mal_pool_alloc(mal_Pool *pool) {
 }
 
 MALAPI void *mal_pool_realloc() {
+	NOT_IMPLEMENTED("Pool realloc is not implemented yet");
 	return 0;
 }
 
@@ -209,18 +226,45 @@ MALAPI void mal_pool_destroy(mal_Pool *pool) {
 	pool->capacity = 0;
 }
 
-MALAPI void *mal_general_create(uint32_t capacity);
-MALAPI void *mal_general_alloc(mal_General_Pool *general_pool, uint32_t size);
-MALAPI void *mal_general_realloc();
-MALAPI void mal_general_reset(mal_General_Pool *general_pool);
-MALAPI void mal_general_free(mal_General_Pool *general_pool);
-MALAPI void mal_general_destroy(mal_General_Pool *general_pool);
+MALAPI void *mal_general_create(uint32_t capacity) {
+	NOT_IMPLEMENTED("General allocator create is not implemented yet");
+	return 0;
+}
+MALAPI void *mal_general_alloc(mal_General_Pool *general_pool, uint32_t size) {
+	NOT_IMPLEMENTED("General allocator alloc is not implemented yet");
+	return 0;
+}
+MALAPI void *mal_general_realloc() {
+	NOT_IMPLEMENTED("General allocator realloc is not implemented yet");
+	return 0;
+}
+MALAPI void mal_general_reset(mal_General_Pool *general_pool) {
+	NOT_IMPLEMENTED("General allocator reset is not implemented yet");
+}
+MALAPI void mal_general_free(mal_General_Pool *general_pool) {
+	NOT_IMPLEMENTED("General allocator free is not implemented yet");
+}
+MALAPI void mal_general_destroy(mal_General_Pool *general_pool) {
+	NOT_IMPLEMENTED("General allocator destroy is not implemented yet");
+}
 
-MALAPI void *mal_stack_create(uint32_t capacity);
-MALAPI void *mal_stack_alloc(mal_Stack *stack, uint32_t size);
-MALAPI void mal_stack_reset(mal_Stack *stack);
-MALAPI void mal_stack_free(mal_Stack *stack);
-MALAPI void mal_stack_destroy(mal_Stack *stack);
+MALAPI void *mal_stack_create(uint32_t capacity) {
+	NOT_IMPLEMENTED("Stack allocator create is not implemented yet");
+	return 0;
+}
+MALAPI void *mal_stack_alloc(mal_Stack *stack, uint32_t size) {
+	NOT_IMPLEMENTED("Stack allocator alloc is not implemented yet");
+	return 0;
+}
+MALAPI void mal_stack_reset(mal_Stack *stack) {
+	NOT_IMPLEMENTED("Stack allocator reset is not implemented yet");
+}
+MALAPI void mal_stack_free(mal_Stack *stack) {
+	NOT_IMPLEMENTED("Stack allocator free is not implemented yet");
+}
+MALAPI void mal_stack_destroy(mal_Stack *stack) {
+	NOT_IMPLEMENTED("Stack allocator destroy is not implemented yet");
+}
 
 // TODO: Remove these functions (just for testing)
 #include <stdio.h>
