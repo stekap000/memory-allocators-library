@@ -165,40 +165,10 @@ MALAPI mal_Pool mal_pool_create(uint32_t capacity, uint32_t slot_size) {
 	return pool;
 }
 
-//typedef struct {
-//	void *start;
-//  void *free_start;
-//	uint32_t number_of_taken_slots;
-//	uint32_t slot_size;
-//	uint32_t capacity;
-//} mal_Pool;
-
-// If the element is taken then there is no need for it to possess pointer to next
-// free element. Because of this, we can allow full item_size for object when it is
-// taken and, in the case is it freed, we can use portion of it as pointer.
-
-// Pointer moves if the freed element in closer to the beginning
-// In other words, it always points to the first free element
-
-// 0 0 0 0 0 0 0 0 0 0 0
-// | - - - - - - - - - -
-
-// x x x x x x x 0 0 0 0
-// o o o o o o o | - - -
-
-// x x 5 x x x x 0 0 0 0 if the address is less than current pointer (move)
-// o o | o o o o - - - -
-
-// x x 3 x x 2 x 0 0 0 0 if the address is greate than current pointer (don't move)
-// o o | o o - o - - - -
-
-// x x 2 x 3 x x 0 0 0 0
-// o o | o - o o - - - -
-
 MALAPI void *mal_pool_alloc(mal_Pool *pool) {
 	if(pool->number_of_taken_slots * pool->slot_size == pool->capacity) return 0;
 	   
-	uint32_t offset = *(uint32_t *)pool->free_start;
+	int offset = *(int *)pool->free_start;
 	void *temp = pool->free_start;
 	pool->free_start = (unsigned char *)pool->free_start + ((offset + 1)* pool->slot_size);
 	pool->number_of_taken_slots++;
@@ -219,23 +189,13 @@ MALAPI void mal_pool_reset(mal_Pool *pool) {
 	pool->number_of_taken_slots = 0;
 }
 
-// TODO: Handle pool free when address > free_start and there is at least one free
-// spot between address and free_start
 MALAPI void mal_pool_free(mal_Pool *pool, void *address) {
 	// TODO: Check if the given address is valid address that was allocated
 
-	// Same steps not factored out from branches since it is easier to follow what is happening without that.
-	if(address < pool->free_start) {
-		uint32_t diff = ((unsigned char *)pool->free_start - (unsigned char *)address) / pool->slot_size;
-		pool->free_start = address;
-		// (diff-1) because we use zero indexing in mal_pool_alloc when looking for next free element.
-		*(uint32_t *)pool->free_start = diff - 1;
-	}
-	else if(address > pool->free_start) {
-		uint32_t diff = ((unsigned char *)address - (unsigned char *)pool->free_start) / pool->slot_size;
-		*(uint32_t *)address = *(uint32_t *)pool->free_start - diff;
-		*(uint32_t *)pool->free_start = diff - 1;
-	}
+	int diff = ((unsigned char *)pool->free_start - (unsigned char *)address) / pool->slot_size;
+
+	pool->free_start = address;
+	*(int *)pool->free_start = diff - 1;
 
 	pool->number_of_taken_slots--;
 }
@@ -256,11 +216,22 @@ MALAPI void mal_general_reset(mal_General_Pool *general_pool);
 MALAPI void mal_general_free(mal_General_Pool *general_pool);
 MALAPI void mal_general_destroy(mal_General_Pool *general_pool);
 
+MALAPI void *mal_stack_create(uint32_t capacity);
+MALAPI void *mal_stack_alloc(mal_Stack *stack, uint32_t size);
+MALAPI void mal_stack_reset(mal_Stack *stack);
+MALAPI void mal_stack_free(mal_Stack *stack);
+MALAPI void mal_stack_destroy(mal_Stack *stack);
+
 // TODO: Remove these functions (just for testing)
 #include <stdio.h>
 void mal_pool_print(mal_Pool *pool, int num_slots) {
 	for(int i = 0; i < num_slots; ++i) {
-		printf("%x\n", *((uint32_t *)pool->start + i));
+		printf("%2x %2x %2x %2x\n",
+			   *((unsigned char*)pool->start + i*4),
+			   *((unsigned char*)pool->start + i*4 + 1),
+			   *((unsigned char*)pool->start + i*4 + 2),
+			   *((unsigned char*)pool->start + i*4 + 3));
+		//printf("%p %x\n", (int *)pool->start + i, *((int *)pool->start + i));
 	}
 }
 
