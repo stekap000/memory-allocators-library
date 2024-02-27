@@ -154,7 +154,7 @@ MALAPI mal_Arena mal_arena_create(uint32_t capacity){
 }
 
 MALAPI void *mal_arena_alloc(mal_Arena *arena, uint32_t size) {
-	if(size > (arena->capacity - arena->size)) return 0;
+	if(arena->size + size > arena->capacity) return 0;
 
 	void *item_address = (char *)arena->start + arena->size;
 	arena->size += size;
@@ -266,18 +266,44 @@ MALAPI mal_Stack mal_stack_create(uint32_t capacity) {
 	
 	return stack;
 }
+//typedef struct {
+//	 void *start;
+//	 void *tos;
+//	 uint32_t size;
+//	 uint32_t capacity;
+//} mal_Stack;
 MALAPI void *mal_stack_alloc(mal_Stack *stack, uint32_t size) {
-	NOT_IMPLEMENTED("Stack allocator alloc is not implemented yet");
-	return 0;
+	uint32_t real_size = size + sizeof(size_t);
+	
+	if(stack->size + real_size > stack->capacity) return 0;
+	
+	void *temp = stack->tos;
+	stack->tos = (unsigned char *)stack->tos + size;
+	*(size_t *)(stack->tos) = temp;
+	stack->tos = (unsigned char *)stack->tos + sizeof(size_t);
+
+	stack->size += real_size;
+	
+	return temp;
 }
 MALAPI void mal_stack_reset(mal_Stack *stack) {
-	NOT_IMPLEMENTED("Stack allocator reset is not implemented yet");
+	stack->tos = stack->start;
+	stack->size = 0;
 }
 MALAPI void mal_stack_free(mal_Stack *stack) {
-	NOT_IMPLEMENTED("Stack allocator free is not implemented yet");
+	if(stack->size == 0) return;
+	
+	uint32_t temp = stack->tos;
+	stack->tos = (unsigned char *)stack->tos - sizeof(size_t);
+	stack->tos = *(size_t *)(stack->tos);
+	stack->size -= ((unsigned char *)stack->tos - (unsigned char *)temp);
 }
 MALAPI void mal_stack_destroy(mal_Stack *stack) {
-	NOT_IMPLEMENTED("Stack allocator destroy is not implemented yet");
+	mal_raw_free(stack->start);
+	stack->start = 0;
+	stack->tos = 0;
+	stack->size = 0;
+	stack->capacity = 0;
 }
 
 // TODO: Remove these functions (just for testing)
@@ -298,10 +324,10 @@ void mal_pool_print(mal_Pool *pool, int num_slots) {
 // NOTE: Try to do it with the least amount of indirection as possible
 
 // TODO: General size block allocator
-
+// TODO: Adjust everything to use size_t since system size diffs are handled
+// TODO: Add padding when elements of particular size are allocated
 // TODO: Allow arena and pool grow (maybe allow usage without passing sizes?, although
 // this would be annoying to efficiently predict in general case)
-
 // TODO: Abstract allocator properties to allow customization
 // TODO: Abstract allocator properties to create specific allocator variations
 
