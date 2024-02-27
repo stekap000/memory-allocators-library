@@ -34,13 +34,15 @@ typedef struct {
 
 typedef struct {
 	void *start;
-	// ...
+	void *tos;
+	uint32_t size;
 	uint32_t capacity;
 } mal_Stack;
 
 // OS dependent
 //===============================
 MALAPI uint32_t mal_get_system_page_size();
+// Also does zero initialization.
 MALAPI void *mal_raw_alloc(size_t capacity);
 MALAPI int mal_raw_free();
 //===============================
@@ -52,21 +54,28 @@ MALAPI void *mal_arena_alloc(mal_Arena *arena, uint32_t size);
 MALAPI void mal_arena_reset(mal_Arena *arena);
 MALAPI void mal_arena_destroy();
 
+// Pool uses relative addressing between free slots such that 0 represents
+// address of next element, -1 current, 1 second next, etc.
+// Reason for 0 being used for next element is that it nicely fits initial
+// state where we have all zeros. Thus, every free space already points to
+// next free space.
 MALAPI mal_Pool mal_pool_create(uint32_t capacity, uint32_t item_size);
 MALAPI void *mal_pool_alloc(mal_Pool *pool);
-MALAPI void *mal_pool_realloc(); // TODO: Implement
+MALAPI void *mal_pool_realloc();
 MALAPI void mal_pool_reset(mal_Pool *pool);
 MALAPI void mal_pool_free(mal_Pool *pool, void *address);
 MALAPI void mal_pool_destroy(mal_Pool *pool);
 
-MALAPI void *mal_general_create(uint32_t capacity);
+MALAPI mal_General_Pool mal_general_create(uint32_t capacity);
 MALAPI void *mal_general_alloc(mal_General_Pool *general_pool, uint32_t size);
 MALAPI void *mal_general_realloc();
 MALAPI void mal_general_reset(mal_General_Pool *general_pool);
 MALAPI void mal_general_free(mal_General_Pool *general_pool);
 MALAPI void mal_general_destroy(mal_General_Pool *general_pool);
 
-MALAPI void *mal_stack_create(uint32_t capacity);
+// TODO: Fixed stack
+
+MALAPI mal_Stack mal_stack_create(uint32_t capacity);
 MALAPI void *mal_stack_alloc(mal_Stack *stack, uint32_t size);
 MALAPI void mal_stack_reset(mal_Stack *stack);
 MALAPI void mal_stack_free(mal_Stack *stack);
@@ -226,9 +235,9 @@ MALAPI void mal_pool_destroy(mal_Pool *pool) {
 	pool->capacity = 0;
 }
 
-MALAPI void *mal_general_create(uint32_t capacity) {
+MALAPI mal_General_Pool mal_general_create(uint32_t capacity) {
 	NOT_IMPLEMENTED("General allocator create is not implemented yet");
-	return 0;
+	return (mal_General_Pool){};
 }
 MALAPI void *mal_general_alloc(mal_General_Pool *general_pool, uint32_t size) {
 	NOT_IMPLEMENTED("General allocator alloc is not implemented yet");
@@ -248,9 +257,14 @@ MALAPI void mal_general_destroy(mal_General_Pool *general_pool) {
 	NOT_IMPLEMENTED("General allocator destroy is not implemented yet");
 }
 
-MALAPI void *mal_stack_create(uint32_t capacity) {
-	NOT_IMPLEMENTED("Stack allocator create is not implemented yet");
-	return 0;
+MALAPI mal_Stack mal_stack_create(uint32_t capacity) {
+	mal_Stack stack = {0};
+	stack.start = mal_raw_alloc(capacity);
+	if(stack.start == 0) return stack; 
+	stack.tos = stack.start;
+	stack.capacity = mal_ceil_to_page_boundary(capacity);;
+	
+	return stack;
 }
 MALAPI void *mal_stack_alloc(mal_Stack *stack, uint32_t size) {
 	NOT_IMPLEMENTED("Stack allocator alloc is not implemented yet");
