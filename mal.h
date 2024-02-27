@@ -12,6 +12,8 @@
 #define MAL_MB(n) (1024*MAL_KB(n))
 #define MAL_GB(n) (1024*MAL_MB(n))
 
+typedef unsigned char byte;
+
 typedef struct {
 	void *start;
 	size_t size;
@@ -72,8 +74,6 @@ MALAPI void *mal_general_realloc();
 MALAPI void mal_general_reset(mal_General_Pool *general_pool);
 MALAPI void mal_general_free(mal_General_Pool *general_pool);
 MALAPI void mal_general_destroy(mal_General_Pool *general_pool);
-
-// TODO: Fixed stack
 
 MALAPI mal_Stack mal_stack_create(size_t capacity);
 MALAPI void *mal_stack_alloc(mal_Stack *stack, size_t size);
@@ -192,7 +192,7 @@ MALAPI void *mal_pool_alloc(mal_Pool *pool) {
 	   
 	int offset = *(int *)pool->free_start;
 	void *temp = pool->free_start;
-	pool->free_start = (unsigned char *)pool->free_start + ((offset + 1)* pool->slot_size);
+	pool->free_start = (byte *)pool->free_start + ((offset + 1)* pool->slot_size);
 	pool->number_of_taken_slots++;
 
 	// TODO: Maybe memset allocated slot to 0
@@ -215,7 +215,7 @@ MALAPI void mal_pool_reset(mal_Pool *pool) {
 MALAPI void mal_pool_free(mal_Pool *pool, void *address) {
 	// TODO: Check if the given address is valid address that was allocated
 
-	int diff = ((unsigned char *)pool->free_start - (unsigned char *)address) / (int)pool->slot_size;
+	int diff = ((byte *)pool->free_start - (byte *)address) / (int)pool->slot_size;
 
 	pool->free_start = address;
 	*(int *)pool->free_start = diff - 1;
@@ -270,9 +270,9 @@ MALAPI void *mal_stack_alloc(mal_Stack *stack, size_t size) {
 	if(stack->size + real_size > stack->capacity) return 0;
 	
 	void *temp = stack->tos;
-	stack->tos = (unsigned char *)stack->tos + size;
+	stack->tos = (byte *)stack->tos + size;
 	*(size_t *)(stack->tos) = (size_t)temp;
-	stack->tos = (unsigned char *)stack->tos + sizeof(size_t);
+	stack->tos = (byte *)stack->tos + sizeof(size_t);
 
 	stack->size += real_size;
 	
@@ -288,9 +288,9 @@ MALAPI void mal_stack_free(mal_Stack *stack) {
 	if(stack->size == 0) return;
 	
 	size_t temp = (size_t)stack->tos;
-	stack->tos = (unsigned char *)stack->tos - sizeof(size_t);
+	stack->tos = (byte *)stack->tos - sizeof(size_t);
 	stack->tos = (void *)(*(size_t *)(stack->tos));
-	stack->size -= ((unsigned char *)stack->tos - (unsigned char *)temp);
+	stack->size -= ((byte *)stack->tos - (byte *)temp);
 }
  
 MALAPI void mal_stack_destroy(mal_Stack *stack) {
@@ -305,11 +305,22 @@ MALAPI void mal_stack_destroy(mal_Stack *stack) {
 #include <stdio.h>
 void mal_pool_print(mal_Pool *pool, int num_slots) {
 	for(int i = 0; i < num_slots; ++i) {
-		printf("%2x %2x %2x %2x\n",
-			   *((unsigned char*)pool->start + i*4 + 3),
-			   *((unsigned char*)pool->start + i*4 + 2),
-			   *((unsigned char*)pool->start + i*4 + 1),
-			   *((unsigned char*)pool->start + i*4));
+		printf("%02x %02x %02x %02x\n",
+			   *((byte*)pool->start + i*4 + 3),
+			   *((byte*)pool->start + i*4 + 2),
+			   *((byte*)pool->start + i*4 + 1),
+			   *((byte*)pool->start + i*4));
+		//printf("%p %x\n", (int *)pool->start + i, *((int *)pool->start + i));
+	}
+}
+
+void mal_stack_print(mal_Stack *stack, int num_slots) {
+	for(int i = 0; i < num_slots; ++i) {
+		printf("%02x %02x %02x %02x\n",
+			   *((byte*)stack->start + i*4 + 3),
+			   *((byte*)stack->start + i*4 + 2),
+			   *((byte*)stack->start + i*4 + 1),
+			   *((byte*)stack->start + i*4));
 		//printf("%p %x\n", (int *)pool->start + i, *((int *)pool->start + i));
 	}
 }
@@ -319,7 +330,6 @@ void mal_pool_print(mal_Pool *pool, int num_slots) {
 // NOTE: Try to do it with the least amount of indirection as possible
 
 // TODO: General size block allocator
-// TODO: Adjust everything to use size_t since system size diffs are handled
 // TODO: Add padding when elements of particular size are allocated
 // TODO: Allow arena and pool grow (maybe allow usage without passing sizes?, although
 // this would be annoying to efficiently predict in general case)
