@@ -14,29 +14,29 @@
 
 typedef struct {
 	void *start;
-	uint32_t size;
-	uint32_t capacity;
+	size_t size;
+	size_t capacity;
 } mal_Arena;
 
 typedef struct {
 	void *start;
 	void *free_start;
-	uint32_t number_of_taken_slots;
-	uint32_t slot_size;
-	uint32_t capacity;
+	size_t number_of_taken_slots;
+	size_t slot_size;
+	size_t capacity;
 } mal_Pool;
 
 typedef struct {
 	void *start;
 	void *free_start;
-	uint32_t capacity;
+	size_t capacity;
 } mal_General_Pool;
 
 typedef struct {
 	void *start;
 	void *tos;
-	uint32_t size;
-	uint32_t capacity;
+	size_t size;
+	size_t capacity;
 } mal_Stack;
 
 // OS dependent
@@ -47,10 +47,10 @@ MALAPI void *mal_raw_alloc(size_t capacity);
 MALAPI int mal_raw_free();
 //===============================
 
-MALAPI uint32_t mal_ceil_to_page_boundary(uint32_t size);
+MALAPI size_t mal_ceil_to_page_boundary(size_t size);
 
-MALAPI mal_Arena mal_arena_create(uint32_t capacity);
-MALAPI void *mal_arena_alloc(mal_Arena *arena, uint32_t size);
+MALAPI mal_Arena mal_arena_create(size_t capacity);
+MALAPI void *mal_arena_alloc(mal_Arena *arena, size_t size);
 MALAPI void mal_arena_reset(mal_Arena *arena);
 MALAPI void mal_arena_destroy();
 
@@ -59,15 +59,15 @@ MALAPI void mal_arena_destroy();
 // Reason for 0 being used for next element is that it nicely fits initial
 // state where we have all zeros. Thus, every free space already points to
 // next free space.
-MALAPI mal_Pool mal_pool_create(uint32_t capacity, uint32_t item_size);
+MALAPI mal_Pool mal_pool_create(size_t capacity, size_t item_size);
 MALAPI void *mal_pool_alloc(mal_Pool *pool);
 MALAPI void *mal_pool_realloc();
 MALAPI void mal_pool_reset(mal_Pool *pool);
 MALAPI void mal_pool_free(mal_Pool *pool, void *address);
 MALAPI void mal_pool_destroy(mal_Pool *pool);
 
-MALAPI mal_General_Pool mal_general_create(uint32_t capacity);
-MALAPI void *mal_general_alloc(mal_General_Pool *general_pool, uint32_t size);
+MALAPI mal_General_Pool mal_general_create(size_t capacity);
+MALAPI void *mal_general_alloc(mal_General_Pool *general_pool, size_t size);
 MALAPI void *mal_general_realloc();
 MALAPI void mal_general_reset(mal_General_Pool *general_pool);
 MALAPI void mal_general_free(mal_General_Pool *general_pool);
@@ -75,8 +75,8 @@ MALAPI void mal_general_destroy(mal_General_Pool *general_pool);
 
 // TODO: Fixed stack
 
-MALAPI mal_Stack mal_stack_create(uint32_t capacity);
-MALAPI void *mal_stack_alloc(mal_Stack *stack, uint32_t size);
+MALAPI mal_Stack mal_stack_create(size_t capacity);
+MALAPI void *mal_stack_alloc(mal_Stack *stack, size_t size);
 MALAPI void mal_stack_reset(mal_Stack *stack);
 MALAPI void mal_stack_free(mal_Stack *stack);
 MALAPI void mal_stack_destroy(mal_Stack *stack);
@@ -93,8 +93,8 @@ MALAPI void mal_stack_destroy(mal_Stack *stack);
 // It returns HANDLE, which is void *.
 // See what linux equivalent returns and then decide what should be overarching type.
 
-MALAPI uint32_t mal_get_system_page_size() {
-	static uint32_t _mal_system_page_size = 0;
+MALAPI size_t mal_get_system_page_size() {
+	static size_t _mal_system_page_size = 0;
 	
 	if(_mal_system_page_size != 0) return _mal_system_page_size;
 
@@ -121,7 +121,7 @@ MALAPI int mal_raw_free(void *address) {
 
 #elif defined(__linux__)
 // TODO: Linux implementation of OS specific functions
-MALAPI uint32_t mal_get_system_page_size() {
+MALAPI size_t mal_get_system_page_size() {
 	NOT_IMPLEMENTED("Linux page size not implemented yet.");
 	return 0;
 }
@@ -137,14 +137,14 @@ MALAPI int mal_raw_free(void *address) {
 
 #endif // OS definitions
 
-MALAPI uint32_t mal_ceil_to_page_boundary(uint32_t size) {
-	uint32_t page_size = mal_get_system_page_size();
-	uint32_t new_size = (size / page_size) * page_size;
+MALAPI size_t mal_ceil_to_page_boundary(size_t size) {
+	size_t page_size = mal_get_system_page_size();
+	size_t new_size = (size / page_size) * page_size;
 	new_size += ((size % page_size) > 0) * page_size;
 	return new_size;
 }
 
-MALAPI mal_Arena mal_arena_create(uint32_t capacity){
+MALAPI mal_Arena mal_arena_create(size_t capacity){
 	mal_Arena arena = {0};
 	arena.start = mal_raw_alloc(capacity);
 	// For now, return empty arena if page allocation fails
@@ -153,7 +153,7 @@ MALAPI mal_Arena mal_arena_create(uint32_t capacity){
 	return arena;
 }
 
-MALAPI void *mal_arena_alloc(mal_Arena *arena, uint32_t size) {
+MALAPI void *mal_arena_alloc(mal_Arena *arena, size_t size) {
 	if(arena->size + size > arena->capacity) return 0;
 
 	void *item_address = (char *)arena->start + arena->size;
@@ -173,16 +173,13 @@ MALAPI void mal_arena_destroy(mal_Arena *arena) {
 	arena->capacity = 0;
 }
 
-MALAPI mal_Pool mal_pool_create(uint32_t capacity, uint32_t slot_size) {
+MALAPI mal_Pool mal_pool_create(size_t capacity, size_t slot_size) {
 	// TODO: Force slot_size to be divisor of capacity
-	
-	// Minimal size for item is the size we need to keep offset to next free element.
-	// For now, it is sizeof uint32_t.
-	if(slot_size < sizeof(uint32_t)) slot_size = sizeof(uint32_t);
+
+	if(slot_size < sizeof(size_t)) slot_size = sizeof(size_t);
 	
 	mal_Pool pool = {0};
 	pool.start = mal_raw_alloc(capacity);
-	// For now, return empty pool if page allocation fails
 	if(pool.start == 0) return pool;
 	pool.free_start = pool.start;
 	pool.capacity = mal_ceil_to_page_boundary(capacity);
@@ -235,11 +232,11 @@ MALAPI void mal_pool_destroy(mal_Pool *pool) {
 	pool->capacity = 0;
 }
 
-MALAPI mal_General_Pool mal_general_create(uint32_t capacity) {
+MALAPI mal_General_Pool mal_general_create(size_t capacity) {
 	NOT_IMPLEMENTED("General allocator create is not implemented yet");
 	return (mal_General_Pool){};
 }
-MALAPI void *mal_general_alloc(mal_General_Pool *general_pool, uint32_t size) {
+MALAPI void *mal_general_alloc(mal_General_Pool *general_pool, size_t size) {
 	NOT_IMPLEMENTED("General allocator alloc is not implemented yet");
 	return 0;
 }
@@ -257,7 +254,7 @@ MALAPI void mal_general_destroy(mal_General_Pool *general_pool) {
 	NOT_IMPLEMENTED("General allocator destroy is not implemented yet");
 }
 
-MALAPI mal_Stack mal_stack_create(uint32_t capacity) {
+MALAPI mal_Stack mal_stack_create(size_t capacity) {
 	mal_Stack stack = {0};
 	stack.start = mal_raw_alloc(capacity);
 	if(stack.start == 0) return stack; 
@@ -266,38 +263,36 @@ MALAPI mal_Stack mal_stack_create(uint32_t capacity) {
 	
 	return stack;
 }
-//typedef struct {
-//	 void *start;
-//	 void *tos;
-//	 uint32_t size;
-//	 uint32_t capacity;
-//} mal_Stack;
-MALAPI void *mal_stack_alloc(mal_Stack *stack, uint32_t size) {
-	uint32_t real_size = size + sizeof(size_t);
+
+MALAPI void *mal_stack_alloc(mal_Stack *stack, size_t size) {
+	size_t real_size = size + sizeof(size_t);
 	
 	if(stack->size + real_size > stack->capacity) return 0;
 	
 	void *temp = stack->tos;
 	stack->tos = (unsigned char *)stack->tos + size;
-	*(size_t *)(stack->tos) = temp;
+	*(size_t *)(stack->tos) = (size_t)temp;
 	stack->tos = (unsigned char *)stack->tos + sizeof(size_t);
 
 	stack->size += real_size;
 	
 	return temp;
 }
+ 
 MALAPI void mal_stack_reset(mal_Stack *stack) {
 	stack->tos = stack->start;
 	stack->size = 0;
 }
+ 
 MALAPI void mal_stack_free(mal_Stack *stack) {
 	if(stack->size == 0) return;
 	
-	uint32_t temp = stack->tos;
+	size_t temp = (size_t)stack->tos;
 	stack->tos = (unsigned char *)stack->tos - sizeof(size_t);
-	stack->tos = *(size_t *)(stack->tos);
+	stack->tos = (void *)(*(size_t *)(stack->tos));
 	stack->size -= ((unsigned char *)stack->tos - (unsigned char *)temp);
 }
+ 
 MALAPI void mal_stack_destroy(mal_Stack *stack) {
 	mal_raw_free(stack->start);
 	stack->start = 0;
