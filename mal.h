@@ -36,6 +36,13 @@ typedef struct {
 
 typedef struct {
 	void *start;
+	size_t number_of_taken_slots;
+	size_t slot_size;
+	size_t capacity;
+} mal_Stack;
+
+typedef struct {
+	void *start;
 	void *tos;
 	size_t size;
 	size_t capacity;
@@ -75,11 +82,17 @@ MALAPI void mal_general_reset(mal_General_Pool *general_pool);
 MALAPI void mal_general_free(mal_General_Pool *general_pool);
 MALAPI void mal_general_destroy(mal_General_Pool *general_pool);
 
-MALAPI mal_General_Stack mal_stack_create(size_t capacity);
-MALAPI void *mal_stack_alloc(mal_General_Stack *stack, size_t size);
+MALAPI mal_Stack mal_stack_create(size_t capacity, size_t slot_size);
+MALAPI void *mal_stack_alloc(mal_General_Stack *stack);
 MALAPI void mal_stack_reset(mal_General_Stack *stack);
 MALAPI void mal_stack_free(mal_General_Stack *stack);
 MALAPI void mal_stack_destroy(mal_General_Stack *stack);
+
+MALAPI mal_General_Stack mal_general_stack_create(size_t capacity);
+MALAPI void *mal_general_stack_alloc(mal_General_Stack *stack, size_t size);
+MALAPI void mal_general_stack_reset(mal_General_Stack *stack);
+MALAPI void mal_general_stack_free(mal_General_Stack *stack);
+MALAPI void mal_general_stack_destroy(mal_General_Stack *stack);
 
 #endif //MAL_H
 
@@ -236,25 +249,52 @@ MALAPI mal_General_Pool mal_general_create(size_t capacity) {
 	NOT_IMPLEMENTED("General allocator create is not implemented yet");
 	return (mal_General_Pool){};
 }
+
 MALAPI void *mal_general_alloc(mal_General_Pool *general_pool, size_t size) {
 	NOT_IMPLEMENTED("General allocator alloc is not implemented yet");
 	return 0;
 }
+
 MALAPI void *mal_general_realloc() {
 	NOT_IMPLEMENTED("General allocator realloc is not implemented yet");
 	return 0;
 }
+
 MALAPI void mal_general_reset(mal_General_Pool *general_pool) {
 	NOT_IMPLEMENTED("General allocator reset is not implemented yet");
 }
+
 MALAPI void mal_general_free(mal_General_Pool *general_pool) {
 	NOT_IMPLEMENTED("General allocator free is not implemented yet");
 }
+
 MALAPI void mal_general_destroy(mal_General_Pool *general_pool) {
 	NOT_IMPLEMENTED("General allocator destroy is not implemented yet");
 }
 
-MALAPI mal_General_Stack mal_stack_create(size_t capacity) {
+MALAPI mal_Stack mal_stack_create(size_t capacity, size_t slot_size) {
+	NOT_IMPLEMENTED("Stack allocator create is not implemented yet");
+	return (mal_Stack){};
+}
+
+MALAPI void *mal_stack_alloc(mal_General_Stack *stack) {
+	NOT_IMPLEMENTED("Stack allocator alloc is not implemented yet");
+	return 0;
+}
+
+MALAPI void mal_stack_reset(mal_General_Stack *stack) {
+	NOT_IMPLEMENTED("Stack allocator reset is not implemented yet");
+}
+
+MALAPI void mal_stack_free(mal_General_Stack *stack) {
+	NOT_IMPLEMENTED("Stack allocator free is not implemented yet");
+}
+
+MALAPI void mal_stack_destroy(mal_General_Stack *stack) {
+	NOT_IMPLEMENTED("Stack allocator destroy is not implemented yet");
+}
+
+MALAPI mal_General_Stack mal_general_stack_create(size_t capacity) {
 	mal_General_Stack stack = {0};
 	stack.start = mal_raw_alloc(capacity);
 	if(stack.start == 0) return stack; 
@@ -264,7 +304,7 @@ MALAPI mal_General_Stack mal_stack_create(size_t capacity) {
 	return stack;
 }
 
-MALAPI void *mal_stack_alloc(mal_General_Stack *stack, size_t size) {
+MALAPI void *mal_general_stack_alloc(mal_General_Stack *stack, size_t size) {
 	size_t real_size = size + sizeof(size_t);
 	
 	if(stack->size + real_size > stack->capacity) return 0;
@@ -279,12 +319,12 @@ MALAPI void *mal_stack_alloc(mal_General_Stack *stack, size_t size) {
 	return temp;
 }
  
-MALAPI void mal_stack_reset(mal_General_Stack *stack) {
+MALAPI void mal_general_stack_reset(mal_General_Stack *stack) {
 	stack->tos = stack->start;
 	stack->size = 0;
 }
  
-MALAPI void mal_stack_free(mal_General_Stack *stack) {
+MALAPI void mal_general_stack_free(mal_General_Stack *stack) {
 	if(stack->size == 0) return;
 	
 	size_t temp = (size_t)stack->tos;
@@ -293,7 +333,7 @@ MALAPI void mal_stack_free(mal_General_Stack *stack) {
 	stack->size -= ((byte *)stack->tos - (byte *)temp);
 }
  
-MALAPI void mal_stack_destroy(mal_General_Stack *stack) {
+MALAPI void mal_general_stack_destroy(mal_General_Stack *stack) {
 	mal_raw_free(stack->start);
 	stack->start = 0;
 	stack->tos = 0;
@@ -314,7 +354,7 @@ void mal_pool_print(mal_Pool *pool, int num_slots) {
 	}
 }
 
-void mal_stack_print(mal_General_Stack *stack, int num_slots) {
+void mal_general_stack_print(mal_General_Stack *stack, int num_slots) {
 	for(int i = 0; i < num_slots; ++i) {
 		printf("%02x %02x %02x %02x\n",
 			   *((byte*)stack->start + i*4 + 3),
