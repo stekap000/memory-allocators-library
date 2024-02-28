@@ -83,10 +83,10 @@ MALAPI void mal_general_free(mal_General_Pool *general_pool);
 MALAPI void mal_general_destroy(mal_General_Pool *general_pool);
 
 MALAPI mal_Stack mal_stack_create(size_t capacity, size_t slot_size);
-MALAPI void *mal_stack_alloc(mal_General_Stack *stack);
-MALAPI void mal_stack_reset(mal_General_Stack *stack);
-MALAPI void mal_stack_free(mal_General_Stack *stack);
-MALAPI void mal_stack_destroy(mal_General_Stack *stack);
+MALAPI void *mal_stack_alloc(mal_Stack *stack);
+MALAPI void mal_stack_reset(mal_Stack *stack);
+MALAPI void mal_stack_free(mal_Stack *stack);
+MALAPI void mal_stack_destroy(mal_Stack *stack);
 
 MALAPI mal_General_Stack mal_general_stack_create(size_t capacity);
 MALAPI void *mal_general_stack_alloc(mal_General_Stack *stack, size_t size);
@@ -272,26 +272,48 @@ MALAPI void mal_general_destroy(mal_General_Pool *general_pool) {
 	NOT_IMPLEMENTED("General allocator destroy is not implemented yet");
 }
 
+//typedef struct {
+//	 void *start;
+//	 size_t number_of_taken_slots;
+//	 size_t slot_size;
+//	 size_t capacity;
+//} mal_Stack;
+
 MALAPI mal_Stack mal_stack_create(size_t capacity, size_t slot_size) {
-	NOT_IMPLEMENTED("Stack allocator create is not implemented yet");
-	return (mal_Stack){};
+	// TODO: Force slot_size to be divisor of capacity
+	
+	mal_Stack stack = {0};
+	stack.start = mal_raw_alloc(capacity);
+	if(stack.start == 0) return stack;
+	stack.slot_size = slot_size;
+	stack.capacity = mal_ceil_to_page_boundary(capacity);
+	
+	return stack;
 }
 
-MALAPI void *mal_stack_alloc(mal_General_Stack *stack) {
-	NOT_IMPLEMENTED("Stack allocator alloc is not implemented yet");
-	return 0;
+MALAPI void *mal_stack_alloc(mal_Stack *stack) {
+	if(stack->number_of_taken_slots * stack->slot_size == stack->capacity) return 0;
+
+	void *temp = (byte *)stack->start + stack->number_of_taken_slots * stack->slot_size;
+	stack->number_of_taken_slots++;
+	return temp;
 }
 
-MALAPI void mal_stack_reset(mal_General_Stack *stack) {
-	NOT_IMPLEMENTED("Stack allocator reset is not implemented yet");
+MALAPI void mal_stack_reset(mal_Stack *stack) {
+	stack->number_of_taken_slots = 0;
 }
 
-MALAPI void mal_stack_free(mal_General_Stack *stack) {
-	NOT_IMPLEMENTED("Stack allocator free is not implemented yet");
+MALAPI void mal_stack_free(mal_Stack *stack) {
+	if(stack->number_of_taken_slots == 0) return;
+	stack->number_of_taken_slots--;
 }
 
-MALAPI void mal_stack_destroy(mal_General_Stack *stack) {
-	NOT_IMPLEMENTED("Stack allocator destroy is not implemented yet");
+MALAPI void mal_stack_destroy(mal_Stack *stack) {
+	mal_raw_free(stack->start);
+	stack->start = 0;
+	stack->number_of_taken_slots = 0;
+	stack->slot_size = 0;
+	stack->capacity = 0;
 }
 
 MALAPI mal_General_Stack mal_general_stack_create(size_t capacity) {
