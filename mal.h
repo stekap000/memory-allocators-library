@@ -39,7 +39,7 @@ typedef struct {
 	void *tos;
 	size_t size;
 	size_t capacity;
-} mal_Stack;
+} mal_General_Stack;
 
 // OS dependent
 //===============================
@@ -75,11 +75,11 @@ MALAPI void mal_general_reset(mal_General_Pool *general_pool);
 MALAPI void mal_general_free(mal_General_Pool *general_pool);
 MALAPI void mal_general_destroy(mal_General_Pool *general_pool);
 
-MALAPI mal_Stack mal_stack_create(size_t capacity);
-MALAPI void *mal_stack_alloc(mal_Stack *stack, size_t size);
-MALAPI void mal_stack_reset(mal_Stack *stack);
-MALAPI void mal_stack_free(mal_Stack *stack);
-MALAPI void mal_stack_destroy(mal_Stack *stack);
+MALAPI mal_General_Stack mal_stack_create(size_t capacity);
+MALAPI void *mal_stack_alloc(mal_General_Stack *stack, size_t size);
+MALAPI void mal_stack_reset(mal_General_Stack *stack);
+MALAPI void mal_stack_free(mal_General_Stack *stack);
+MALAPI void mal_stack_destroy(mal_General_Stack *stack);
 
 #endif //MAL_H
 
@@ -254,8 +254,8 @@ MALAPI void mal_general_destroy(mal_General_Pool *general_pool) {
 	NOT_IMPLEMENTED("General allocator destroy is not implemented yet");
 }
 
-MALAPI mal_Stack mal_stack_create(size_t capacity) {
-	mal_Stack stack = {0};
+MALAPI mal_General_Stack mal_stack_create(size_t capacity) {
+	mal_General_Stack stack = {0};
 	stack.start = mal_raw_alloc(capacity);
 	if(stack.start == 0) return stack; 
 	stack.tos = stack.start;
@@ -264,7 +264,7 @@ MALAPI mal_Stack mal_stack_create(size_t capacity) {
 	return stack;
 }
 
-MALAPI void *mal_stack_alloc(mal_Stack *stack, size_t size) {
+MALAPI void *mal_stack_alloc(mal_General_Stack *stack, size_t size) {
 	size_t real_size = size + sizeof(size_t);
 	
 	if(stack->size + real_size > stack->capacity) return 0;
@@ -279,12 +279,12 @@ MALAPI void *mal_stack_alloc(mal_Stack *stack, size_t size) {
 	return temp;
 }
  
-MALAPI void mal_stack_reset(mal_Stack *stack) {
+MALAPI void mal_stack_reset(mal_General_Stack *stack) {
 	stack->tos = stack->start;
 	stack->size = 0;
 }
  
-MALAPI void mal_stack_free(mal_Stack *stack) {
+MALAPI void mal_stack_free(mal_General_Stack *stack) {
 	if(stack->size == 0) return;
 	
 	size_t temp = (size_t)stack->tos;
@@ -293,7 +293,7 @@ MALAPI void mal_stack_free(mal_Stack *stack) {
 	stack->size -= ((byte *)stack->tos - (byte *)temp);
 }
  
-MALAPI void mal_stack_destroy(mal_Stack *stack) {
+MALAPI void mal_stack_destroy(mal_General_Stack *stack) {
 	mal_raw_free(stack->start);
 	stack->start = 0;
 	stack->tos = 0;
@@ -314,7 +314,7 @@ void mal_pool_print(mal_Pool *pool, int num_slots) {
 	}
 }
 
-void mal_stack_print(mal_Stack *stack, int num_slots) {
+void mal_stack_print(mal_General_Stack *stack, int num_slots) {
 	for(int i = 0; i < num_slots; ++i) {
 		printf("%02x %02x %02x %02x\n",
 			   *((byte*)stack->start + i*4 + 3),
