@@ -1,12 +1,12 @@
 #ifndef MAL_H
 #define MAL_H
 
-#include <stdint.h> // TODO: Maybe remove
-#include <assert.h> // TODO: Maybe remove
-
-#define NOT_IMPLEMENTED(msg) assert(!(msg))
+#include <assert.h> // TODO: Maybe remove (write custom assert or avoid use)
 
 #define MALAPI static
+
+#define MAL_NOT_IMPLEMENTED(msg) assert(!(msg))
+#define MAL_ASSERT_DIVISIBILITY(a, b) assert((a) >= (b) && (a)%(b) == 0)
 
 #define MAL_KB(n) (1024*(n))
 #define MAL_MB(n) (1024*MAL_KB(n))
@@ -50,7 +50,7 @@ typedef struct {
 
 // OS dependent
 //===============================
-MALAPI uint32_t mal_get_system_page_size();
+MALAPI size_t mal_get_system_page_size();
 // Also does zero initialization.
 MALAPI void *mal_raw_alloc(size_t capacity);
 MALAPI int mal_raw_free();
@@ -119,7 +119,7 @@ MALAPI size_t mal_get_system_page_size() {
 
 MALAPI void *mal_raw_alloc(size_t capacity) {
 	return VirtualAllocEx(GetCurrentProcess(),
-						  0, // Possibly adjust later
+						  0, // TODO: Possibly adjust later
 						  capacity,
 						  MEM_COMMIT | MEM_RESERVE,
 						  PAGE_READWRITE);
@@ -135,17 +135,17 @@ MALAPI int mal_raw_free(void *address) {
 #elif defined(__linux__)
 // TODO: Linux implementation of OS specific functions
 MALAPI size_t mal_get_system_page_size() {
-	NOT_IMPLEMENTED("Linux page size not implemented yet.");
+	MAL_NOT_IMPLEMENTED("Linux page size not implemented yet.");
 	return 0;
 }
 
 MALAPI void *mal_raw_alloc(size_t capacity) {
-	NOT_IMPLEMENTED("Linux pages alloc not implemented yet.");
+	MAL_NOT_IMPLEMENTED("Linux pages alloc not implemented yet.");
 	return 0;
 }
 
 MALAPI int mal_raw_free(void *address) {
-	NOT_IMPLEMENTED("Linux pages free not implemented yet.");
+	MAL_NOT_IMPLEMENTED("Linux pages free not implemented yet.");
 	return 0;
 
 #endif // OS definitions
@@ -160,7 +160,6 @@ MALAPI size_t mal_ceil_to_page_boundary(size_t size) {
 MALAPI mal_Arena mal_arena_create(size_t capacity){
 	mal_Arena arena = {0};
 	arena.start = mal_raw_alloc(capacity);
-	// For now, return empty arena if page allocation fails
 	if(arena.start == 0) return arena;
 	arena.capacity = mal_ceil_to_page_boundary(capacity);
 	return arena;
@@ -179,7 +178,6 @@ MALAPI void mal_arena_reset(mal_Arena *arena) {
 }
 
 MALAPI void mal_arena_destroy(mal_Arena *arena) {
-	// TODO: Maybe introduce check for the case when OS page free fails.
 	mal_raw_free(arena->start);
 	arena->start = 0;
 	arena->size = 0;
@@ -187,8 +185,6 @@ MALAPI void mal_arena_destroy(mal_Arena *arena) {
 }
 
 MALAPI mal_Pool mal_pool_create(size_t capacity, size_t slot_size) {
-	// TODO: Force slot_size to be divisor of capacity
-
 	if(slot_size < sizeof(size_t)) slot_size = sizeof(size_t);
 	
 	mal_Pool pool = {0};
@@ -197,6 +193,9 @@ MALAPI mal_Pool mal_pool_create(size_t capacity, size_t slot_size) {
 	pool.free_start = pool.start;
 	pool.capacity = mal_ceil_to_page_boundary(capacity);
 	pool.slot_size = slot_size;
+	
+	MAL_ASSERT_DIVISIBILITY(pool.capacity, pool.slot_size);
+	
 	return pool;
 }
 
@@ -208,26 +207,20 @@ MALAPI void *mal_pool_alloc(mal_Pool *pool) {
 	pool->free_start = (byte *)pool->free_start + ((offset + 1)* pool->slot_size);
 	pool->number_of_taken_slots++;
 
-	// TODO: Maybe memset allocated slot to 0
-	
 	return temp;
 }
 
 MALAPI void *mal_pool_realloc() {
-	NOT_IMPLEMENTED("Pool realloc is not implemented yet");
+	MAL_NOT_IMPLEMENTED("Pool realloc is not implemented yet");
 	return 0;
 }
 
 MALAPI void mal_pool_reset(mal_Pool *pool) {
-	// TODO: Maybe memset everything to zero?
-	
 	pool->free_start = pool->start;
 	pool->number_of_taken_slots = 0;
 }
 
 MALAPI void mal_pool_free(mal_Pool *pool, void *address) {
-	// TODO: Check if the given address is valid address that was allocated
-
 	int diff = ((byte *)pool->free_start - (byte *)address) / (int)pool->slot_size;
 
 	pool->free_start = address;
@@ -246,47 +239,40 @@ MALAPI void mal_pool_destroy(mal_Pool *pool) {
 }
 
 MALAPI mal_General_Pool mal_general_create(size_t capacity) {
-	NOT_IMPLEMENTED("General allocator create is not implemented yet");
+	MAL_NOT_IMPLEMENTED("General allocator create is not implemented yet");
 	return (mal_General_Pool){};
 }
 
 MALAPI void *mal_general_alloc(mal_General_Pool *general_pool, size_t size) {
-	NOT_IMPLEMENTED("General allocator alloc is not implemented yet");
+	MAL_NOT_IMPLEMENTED("General allocator alloc is not implemented yet");
 	return 0;
 }
 
 MALAPI void *mal_general_realloc() {
-	NOT_IMPLEMENTED("General allocator realloc is not implemented yet");
+	MAL_NOT_IMPLEMENTED("General allocator realloc is not implemented yet");
 	return 0;
 }
 
 MALAPI void mal_general_reset(mal_General_Pool *general_pool) {
-	NOT_IMPLEMENTED("General allocator reset is not implemented yet");
+	MAL_NOT_IMPLEMENTED("General allocator reset is not implemented yet");
 }
 
 MALAPI void mal_general_free(mal_General_Pool *general_pool) {
-	NOT_IMPLEMENTED("General allocator free is not implemented yet");
+	MAL_NOT_IMPLEMENTED("General allocator free is not implemented yet");
 }
 
 MALAPI void mal_general_destroy(mal_General_Pool *general_pool) {
-	NOT_IMPLEMENTED("General allocator destroy is not implemented yet");
+	MAL_NOT_IMPLEMENTED("General allocator destroy is not implemented yet");
 }
 
-//typedef struct {
-//	 void *start;
-//	 size_t number_of_taken_slots;
-//	 size_t slot_size;
-//	 size_t capacity;
-//} mal_Stack;
-
 MALAPI mal_Stack mal_stack_create(size_t capacity, size_t slot_size) {
-	// TODO: Force slot_size to be divisor of capacity
-	
 	mal_Stack stack = {0};
 	stack.start = mal_raw_alloc(capacity);
 	if(stack.start == 0) return stack;
-	stack.slot_size = slot_size;
 	stack.capacity = mal_ceil_to_page_boundary(capacity);
+	stack.slot_size = slot_size;
+
+	MAL_ASSERT_DIVISIBILITY(stack.capacity, stack.slot_size);
 	
 	return stack;
 }
@@ -372,7 +358,6 @@ void mal_pool_print(mal_Pool *pool, int num_slots) {
 			   *((byte*)pool->start + i*4 + 2),
 			   *((byte*)pool->start + i*4 + 1),
 			   *((byte*)pool->start + i*4));
-		//printf("%p %x\n", (int *)pool->start + i, *((int *)pool->start + i));
 	}
 }
 
@@ -383,7 +368,6 @@ void mal_general_stack_print(mal_General_Stack *stack, int num_slots) {
 			   *((byte*)stack->start + i*4 + 2),
 			   *((byte*)stack->start + i*4 + 1),
 			   *((byte*)stack->start + i*4));
-		//printf("%p %x\n", (int *)pool->start + i, *((int *)pool->start + i));
 	}
 }
 
@@ -391,6 +375,11 @@ void mal_general_stack_print(mal_General_Stack *stack, int num_slots) {
 
 // NOTE: Try to do it with the least amount of indirection as possible
 
+// TODO: Maybe memset allocated addresses to zero?
+// TODO: Maybe memset things to zero when reset?
+// TODO: Think about what to do if mal_raw_alloc returns 0. Currently, zeroed type is returned
+// TODO: Maybe introduce check for the case when OS page free fails.
+// TODO: Check if the given address is valid address that was allocated when using free
 // TODO: General size block allocator
 // TODO: Add padding when elements of particular size are allocated
 // TODO: Allow arena and pool grow (maybe allow usage without passing sizes?, although
