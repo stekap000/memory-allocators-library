@@ -371,6 +371,16 @@ void mal_general_stack_print(mal_General_Stack *stack, int num_slots) {
 	}
 }
 
+void mal_print(void *allocator, int num_slots) {
+	for(int i = 0; i < num_slots; ++i) {
+		printf("%02x %02x %02x %02x\n",
+			   *((byte*)((mal_Arena *)allocator)->start + i*4 + 3),
+			   *((byte*)((mal_Arena *)allocator)->start + i*4 + 2),
+			   *((byte*)((mal_Arena *)allocator)->start + i*4 + 1),
+			   *((byte*)((mal_Arena *)allocator)->start + i*4));
+	}
+}
+
 #endif //MAL_IMPLEMENTATION
 
 // NOTE: Try to do it with the least amount of indirection as possible
