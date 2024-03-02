@@ -354,26 +354,6 @@ MALAPI void mal_general_stack_destroy(mal_General_Stack *stack) {
 
 // TODO: Remove these functions (just for testing)
 #include <stdio.h>
-void mal_pool_print(mal_Pool *pool, int num_slots) {
-	for(int i = 0; i < num_slots; ++i) {
-		printf("%02x %02x %02x %02x\n",
-			   *((byte*)pool->start + i*4 + 3),
-			   *((byte*)pool->start + i*4 + 2),
-			   *((byte*)pool->start + i*4 + 1),
-			   *((byte*)pool->start + i*4));
-	}
-}
-
-void mal_general_stack_print(mal_General_Stack *stack, int num_slots) {
-	for(int i = 0; i < num_slots; ++i) {
-		printf("%02x %02x %02x %02x\n",
-			   *((byte*)stack->start + i*4 + 3),
-			   *((byte*)stack->start + i*4 + 2),
-			   *((byte*)stack->start + i*4 + 1),
-			   *((byte*)stack->start + i*4));
-	}
-}
-
 void mal_print(void *allocator, int num_slots) {
 	for(int i = 0; i < num_slots; ++i) {
 		printf("%02x %02x %02x %02x\n",
