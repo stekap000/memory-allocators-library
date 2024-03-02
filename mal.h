@@ -1,6 +1,9 @@
 #ifndef MAL_H
 #define MAL_H
 
+// TODO: Any include that is used now or in the future is subject to being removed
+// in order for library to have minimal dependency.
+
 #include <assert.h> // TODO: Maybe remove (write custom assert or avoid use)
 
 #define MALAPI static
