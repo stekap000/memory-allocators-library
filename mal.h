@@ -119,7 +119,7 @@ MALAPI size_t mal_get_system_page_size() {
 MALAPI void *mal_raw_alloc(size_t capacity) {
 	// 0 on fail.
 	return VirtualAllocEx(GetCurrentProcess(),
-						  0, // TODO: Possibly adjust later
+						  0,
 						  capacity,
 						  MEM_COMMIT | MEM_RESERVE,
 						  PAGE_READWRITE);
@@ -375,18 +375,15 @@ void mal_print(void *allocator, int num_slots) {
 
 #endif //MAL_IMPLEMENTATION
 
-// NOTE: Try to do it with the least amount of indirection as possible
-
 // TODO: Handle all errors uniformly for all OS. Maybe introduce explicit MAL error handling system.
 // TODO: Maybe memset allocated addresses to zero?
 // TODO: Maybe memset things to zero when reset?
-// TODO: Think about what to do if mal_raw_alloc returns 0. Currently, zeroed type is returned
+// TODO: Think about what to do if mal_raw_alloc returns 0. Currently, zeroed type is returned.
 // TODO: Maybe introduce check for the case when OS page free fails.
-// TODO: Check if the given address is valid address that was allocated when using free
-// TODO: General size block allocator
-// TODO: Add padding when elements of particular size are allocated
+// TODO: Check if the given address is valid address that was allocated when using free.
+// TODO: Add padding when elements of particular size are allocated.
 // TODO: Allow arena and pool grow (maybe allow usage without passing sizes?, although
-// this would be annoying to efficiently predict in general case)
-// TODO: Abstract allocator properties to allow customization
-// TODO: Abstract allocator properties to create specific allocator variations
+// this would be annoying to efficiently predict in general case).
+// TODO: Abstract allocator properties to allow customization.
+// TODO: Abstract allocator properties to create specific allocator variations.
 
