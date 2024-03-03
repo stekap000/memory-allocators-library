@@ -4,5 +4,8 @@ compile*
 mal.h~
 #mal.h#
 
+*.exe
+*.out
+
 .gitignore~
 #gitignore#

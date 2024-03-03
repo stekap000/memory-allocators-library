@@ -4,7 +4,8 @@
 // TODO: Any include that is used now or in the future is subject to being removed
 // in order for library to have minimal dependency.
 
-#include <assert.h> // TODO: Maybe remove (write custom assert or avoid use)
+#include <assert.h>
+#include <stddef.h>
 
 #define MALAPI static
 
@@ -136,6 +137,7 @@ MALAPI int mal_raw_free(void *address) {
 }
 
 #elif defined(__linux__)
+#include <unistd.h>
 // TODO: Linux implementation of OS specific functions
 MALAPI size_t mal_get_system_page_size() {
 	MAL_NOT_IMPLEMENTED("Linux page size not implemented yet.");
@@ -150,6 +152,7 @@ MALAPI void *mal_raw_alloc(size_t capacity) {
 MALAPI int mal_raw_free(void *address) {
 	MAL_NOT_IMPLEMENTED("Linux pages free not implemented yet.");
 	return 0;
+}
 
 #endif // OS definitions
 
