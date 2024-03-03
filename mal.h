@@ -57,7 +57,7 @@ typedef struct {
 MALAPI size_t mal_get_system_page_size();
 // Also does zero initialization.
 MALAPI void *mal_raw_alloc(size_t capacity);
-MALAPI int mal_raw_free();
+MALAPI int mal_raw_free(void *address, size_t length);
 //===============================
 
 MALAPI size_t mal_ceil_to_page_boundary(size_t size);
@@ -117,6 +117,7 @@ MALAPI size_t mal_get_system_page_size() {
 }
 
 MALAPI void *mal_raw_alloc(size_t capacity) {
+	// 0 on fail.
 	return VirtualAllocEx(GetCurrentProcess(),
 						  0, // TODO: Possibly adjust later
 						  capacity,
@@ -124,10 +125,11 @@ MALAPI void *mal_raw_alloc(size_t capacity) {
 						  PAGE_READWRITE);
 }
 
-MALAPI int mal_raw_free(void *address) {
+MALAPI int mal_raw_free(void *address, size_t length) {
+	// 0 on fail.
 	return VirtualFreeEx(GetCurrentProcess(),
 						 address,
-						 0,
+						 0, // Must be zero for MEM_RELEASE
 						 MEM_RELEASE);
 }
 
@@ -145,16 +147,17 @@ MALAPI size_t mal_get_system_page_size() {
 	return _mal_system_page_size;
 }
 
-#include <stdio.h>
 MALAPI void *mal_raw_alloc(size_t capacity) {
-	void *addr = mmap(0, capacity, PROT_NONE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+	void *addr = mmap(0, capacity, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	if(addr == MAP_FAILED) addr = 0;
+	// 0 on fail.
 	return addr;
 }
 
-MALAPI int mal_raw_free(void *address) {
-	MAL_NOT_IMPLEMENTED("Linux pages free not implemented yet.");
-	return 0;
+MALAPI int mal_raw_free(void *address, size_t length) {
+	// 0 on fail.
+	if(munmap(address, length) == -1) return 0;
+	return 1;
 }
 
 #endif // OS definitions
@@ -187,7 +190,7 @@ MALAPI void mal_arena_reset(mal_Arena *arena) {
 }
 
 MALAPI void mal_arena_destroy(mal_Arena *arena) {
-	mal_raw_free(arena->start);
+	mal_raw_free(arena->start, arena->capacity);
 	arena->start = 0;
 	arena->size = 0;
 	arena->capacity = 0;
@@ -239,7 +242,7 @@ MALAPI void mal_pool_free(mal_Pool *pool, void *address) {
 }
 
 MALAPI void mal_pool_destroy(mal_Pool *pool) {
-	mal_raw_free(pool->start);
+	mal_raw_free(pool->start, pool->capacity);
 	pool->start = 0;
 	pool->free_start = 0;
 	pool->number_of_taken_slots = 0;
@@ -304,7 +307,7 @@ MALAPI void mal_stack_free(mal_Stack *stack) {
 }
 
 MALAPI void mal_stack_destroy(mal_Stack *stack) {
-	mal_raw_free(stack->start);
+	mal_raw_free(stack->start, stack->capacity);
 	stack->start = 0;
 	stack->number_of_taken_slots = 0;
 	stack->slot_size = 0;
@@ -351,7 +354,7 @@ MALAPI void mal_general_stack_free(mal_General_Stack *stack) {
 }
  
 MALAPI void mal_general_stack_destroy(mal_General_Stack *stack) {
-	mal_raw_free(stack->start);
+	mal_raw_free(stack->start, stack->capacity);
 	stack->start = 0;
 	stack->tos = 0;
 	stack->size = 0;
@@ -374,6 +377,7 @@ void mal_print(void *allocator, int num_slots) {
 
 // NOTE: Try to do it with the least amount of indirection as possible
 
+// TODO: Handle all errors uniformly for all OS. Maybe introduce explicit MAL error handling system.
 // TODO: Maybe memset allocated addresses to zero?
 // TODO: Maybe memset things to zero when reset?
 // TODO: Think about what to do if mal_raw_alloc returns 0. Currently, zeroed type is returned
