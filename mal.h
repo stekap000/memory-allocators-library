@@ -105,14 +105,9 @@ MALAPI void mal_general_stack_destroy(mal_General_Stack *stack);
 #if defined(_WIN32)
 #include <windows.h> // For system info we just need sysinfoapi.h
 
-// TODO: Abstract GetCurrentProcess so that the return value can be cached to avoid
-// unnecessary calls.
-// It returns HANDLE, which is void *.
-// See what linux equivalent returns and then decide what should be overarching type.
-
+// TODO: Maybe save GetCurrentProcess return value and avoid further calls?
 MALAPI size_t mal_get_system_page_size() {
 	static size_t _mal_system_page_size = 0;
-	
 	if(_mal_system_page_size != 0) return _mal_system_page_size;
 
 	SYSTEM_INFO si = {0};
@@ -138,15 +133,23 @@ MALAPI int mal_raw_free(void *address) {
 
 #elif defined(__linux__)
 #include <unistd.h>
-// TODO: Linux implementation of OS specific functions
+#include <sys/mman.h>
+
 MALAPI size_t mal_get_system_page_size() {
-	MAL_NOT_IMPLEMENTED("Linux page size not implemented yet.");
-	return 0;
+	static size_t _mal_system_page_size = 0;
+	if(_mal_system_page_size != 0) return _mal_system_page_size;
+	
+	long size = sysconf(_SC_PAGESIZE);
+	assert(size > 0);
+	_mal_system_page_size = (size_t)size;
+	return _mal_system_page_size;
 }
 
+#include <stdio.h>
 MALAPI void *mal_raw_alloc(size_t capacity) {
-	MAL_NOT_IMPLEMENTED("Linux pages alloc not implemented yet.");
-	return 0;
+	void *addr = mmap(0, capacity, PROT_NONE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+	if(addr == MAP_FAILED) addr = 0;
+	return addr;
 }
 
 MALAPI int mal_raw_free(void *address) {

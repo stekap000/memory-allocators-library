@@ -6,6 +6,7 @@ mal.h~
 
 *.exe
 *.out
+makefile
 
 .gitignore~
 #gitignore#
