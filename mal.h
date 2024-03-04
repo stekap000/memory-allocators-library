@@ -64,12 +64,11 @@ typedef struct {
 } mal_General_Stack;
 
 // OS dependent
-// ===============================
+// ===================================================
 MALAPI size_t mal_get_system_page_size();
-// Also does zero initialization.
 MALAPI void *mal_raw_alloc(size_t capacity);
 MALAPI int mal_raw_free(void *address, size_t length);
-// ===============================
+// ===================================================
 
 MALAPI size_t mal_ceil_to_page_boundary(size_t size);
 
@@ -116,7 +115,8 @@ MALAPI int mal_general_stack_destroy(mal_General_Stack *stack);
 #if defined(_WIN32)
 #include <windows.h> // For system info we just need sysinfoapi.h
 
-static void *_current_process_handle = 0;
+// Cached pseudo handle for current process on windows.
+static void *_current_process_pseudo_handle = 0;
 
 MALAPI size_t mal_get_system_page_size() {
 	static size_t _mal_system_page_size = 0;
@@ -129,10 +129,10 @@ MALAPI size_t mal_get_system_page_size() {
 }
 
 MALAPI void *mal_raw_alloc(size_t capacity) {
-	if(_current_process_handle == 0)
-		_current_process_handle = GetCurrentProcess();
+	if(_current_process_pseudo_handle == 0)
+		_current_process_pseudo_handle = GetCurrentProcess();
 	
-	void *address = VirtualAllocEx(_current_process_handle,
+	void *address = VirtualAllocEx(_current_process_pseudo_handle,
 								   0,
 								   capacity,
 								   MEM_COMMIT | MEM_RESERVE,
@@ -142,10 +142,10 @@ MALAPI void *mal_raw_alloc(size_t capacity) {
 }
 
 MALAPI int mal_raw_free(void *address, size_t length) {
-	if(_current_process_handle == 0)
-		_current_process_handle = GetCurrentProcess();
+	if(_current_process_pseudo_handle == 0)
+		_current_process_pseudo_handle = GetCurrentProcess();
 		
-	int ret = VirtualFreeEx(_current_process_handle,
+	int ret = VirtualFreeEx(_current_process_pseudo_handle,
 							address,
 							0,
 							MEM_RELEASE);
