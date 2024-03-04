@@ -116,7 +116,8 @@ MALAPI int mal_general_stack_destroy(mal_General_Stack *stack);
 #if defined(_WIN32)
 #include <windows.h> // For system info we just need sysinfoapi.h
 
-// TODO: Maybe save GetCurrentProcess return value and avoid further calls?
+static void *_current_process_handle = 0;
+
 MALAPI size_t mal_get_system_page_size() {
 	static size_t _mal_system_page_size = 0;
 	if(_mal_system_page_size != 0) return _mal_system_page_size;
@@ -128,7 +129,10 @@ MALAPI size_t mal_get_system_page_size() {
 }
 
 MALAPI void *mal_raw_alloc(size_t capacity) {
-	void *address = VirtualAllocEx(GetCurrentProcess(),
+	if(_current_process_handle == 0)
+		_current_process_handle = GetCurrentProcess();
+	
+	void *address = VirtualAllocEx(_current_process_handle,
 								   0,
 								   capacity,
 								   MEM_COMMIT | MEM_RESERVE,
@@ -138,7 +142,10 @@ MALAPI void *mal_raw_alloc(size_t capacity) {
 }
 
 MALAPI int mal_raw_free(void *address, size_t length) {
-	int ret = VirtualFreeEx(GetCurrentProcess(),
+	if(_current_process_handle == 0)
+		_current_process_handle = GetCurrentProcess();
+		
+	int ret = VirtualFreeEx(_current_process_handle,
 							address,
 							0,
 							MEM_RELEASE);
@@ -161,7 +168,10 @@ MALAPI size_t mal_get_system_page_size() {
 }
 
 MALAPI void *mal_raw_alloc(size_t capacity) {
-	void *addr = mmap(0, capacity, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+	void *addr = mmap(0, capacity,
+					  PROT_READ | PROT_WRITE,
+					  MAP_ANONYMOUS | MAP_PRIVATE,
+					  -1, 0);
 	if(addr == MAP_FAILED) MAL_ERROR_RETURN(MAL_ERROR);
 	return addr;
 }
