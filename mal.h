@@ -18,6 +18,7 @@
 
 // For now, OS specific functions return 0 on fail.
 #define MAL_ERROR 0
+#define MAL_SUCCESS 1
 #define MAL_VALID(ret)   ((ret) != MAL_ERROR)
 #define MAL_INVALID(ret) ((ret) == MAL_ERROR)
 #ifdef MAL_ERROR_ASSERT
@@ -87,7 +88,7 @@ MALAPI void *mal_pool_alloc(mal_Pool *pool);
 MALAPI void *mal_pool_realloc();
 MALAPI void mal_pool_reset(mal_Pool *pool);
 MALAPI void mal_pool_free(mal_Pool *pool, void *address);
-MALAPI void mal_pool_destroy(mal_Pool *pool);
+MALAPI int mal_pool_destroy(mal_Pool *pool);
 
 MALAPI mal_General_Pool mal_general_create(size_t capacity);
 MALAPI void *mal_general_alloc(mal_General_Pool *general_pool, size_t size);
@@ -100,13 +101,13 @@ MALAPI mal_Stack mal_stack_create(size_t capacity, size_t slot_size);
 MALAPI void *mal_stack_alloc(mal_Stack *stack);
 MALAPI void mal_stack_reset(mal_Stack *stack);
 MALAPI void mal_stack_free(mal_Stack *stack);
-MALAPI void mal_stack_destroy(mal_Stack *stack);
+MALAPI int mal_stack_destroy(mal_Stack *stack);
 
 MALAPI mal_General_Stack mal_general_stack_create(size_t capacity);
 MALAPI void *mal_general_stack_alloc(mal_General_Stack *stack, size_t size);
 MALAPI void mal_general_stack_reset(mal_General_Stack *stack);
 MALAPI void mal_general_stack_free(mal_General_Stack *stack);
-MALAPI void mal_general_stack_destroy(mal_General_Stack *stack);
+MALAPI int mal_general_stack_destroy(mal_General_Stack *stack);
 
 #endif //MAL_H
 
@@ -167,7 +168,7 @@ MALAPI void *mal_raw_alloc(size_t capacity) {
 
 MALAPI int mal_raw_free(void *address, size_t length) {
 	if(munmap(address, length) == -1) MAL_ERROR_RETURN(MAL_ERROR);
-	return 1;
+	return MAL_SUCCESS;
 }
 
 #endif // OS definitions
@@ -201,10 +202,11 @@ MALAPI void mal_arena_reset(mal_Arena *arena) {
 
 MALAPI int mal_arena_destroy(mal_Arena *arena) {
 	int ret = mal_raw_free(arena->start, arena->capacity);
-	if(MAL_INVALID(ret)) return MAL_ERROR;
+	if(MAL_INVALID(ret)) MAL_ERROR_RETURN(MAL_ERROR);
 	arena->start = 0;
 	arena->size = 0;
 	arena->capacity = 0;
+	return MAL_SUCCESS;
 }
 
 MALAPI mal_Pool mal_pool_create(size_t capacity, size_t slot_size) {
@@ -212,7 +214,7 @@ MALAPI mal_Pool mal_pool_create(size_t capacity, size_t slot_size) {
 	
 	mal_Pool pool = {0};
 	pool.start = mal_raw_alloc(capacity);
-	if(pool.start == 0) return pool;
+	if(MAL_INVALID(pool.start)) MAL_ERROR_RETURN(pool);
 	pool.free_start = pool.start;
 	pool.capacity = mal_ceil_to_page_boundary(capacity);
 	pool.slot_size = slot_size;
@@ -223,7 +225,7 @@ MALAPI mal_Pool mal_pool_create(size_t capacity, size_t slot_size) {
 }
 
 MALAPI void *mal_pool_alloc(mal_Pool *pool) {
-	if(pool->number_of_taken_slots * pool->slot_size == pool->capacity) return 0;
+	if(pool->number_of_taken_slots * pool->slot_size == pool->capacity) MAL_ERROR_RETURN(MAL_ERROR);
 	   
 	int offset = *(int *)pool->free_start;
 	void *temp = pool->free_start;
@@ -252,13 +254,15 @@ MALAPI void mal_pool_free(mal_Pool *pool, void *address) {
 	pool->number_of_taken_slots--;
 }
 
-MALAPI void mal_pool_destroy(mal_Pool *pool) {
-	mal_raw_free(pool->start, pool->capacity);
+MALAPI int mal_pool_destroy(mal_Pool *pool) {
+	int ret = mal_raw_free(pool->start, pool->capacity);
+	if(MAL_INVALID(ret)) MAL_ERROR_RETURN(MAL_ERROR);
 	pool->start = 0;
 	pool->free_start = 0;
 	pool->number_of_taken_slots = 0;
 	pool->slot_size = 0;
 	pool->capacity = 0;
+	return MAL_SUCCESS;
 }
 
 MALAPI mal_General_Pool mal_general_create(size_t capacity) {
@@ -291,7 +295,7 @@ MALAPI void mal_general_destroy(mal_General_Pool *general_pool) {
 MALAPI mal_Stack mal_stack_create(size_t capacity, size_t slot_size) {
 	mal_Stack stack = {0};
 	stack.start = mal_raw_alloc(capacity);
-	if(stack.start == 0) return stack;
+	if(MAL_INVALID(stack.start)) MAL_ERROR_RETURN(stack);
 	stack.capacity = mal_ceil_to_page_boundary(capacity);
 	stack.slot_size = slot_size;
 
@@ -301,7 +305,7 @@ MALAPI mal_Stack mal_stack_create(size_t capacity, size_t slot_size) {
 }
 
 MALAPI void *mal_stack_alloc(mal_Stack *stack) {
-	if(stack->number_of_taken_slots * stack->slot_size == stack->capacity) return 0;
+	if(stack->number_of_taken_slots * stack->slot_size == stack->capacity) MAL_ERROR_RETURN(MAL_ERROR);
 
 	void *temp = (byte *)stack->start + stack->number_of_taken_slots * stack->slot_size;
 	stack->number_of_taken_slots++;
@@ -317,28 +321,29 @@ MALAPI void mal_stack_free(mal_Stack *stack) {
 	stack->number_of_taken_slots--;
 }
 
-MALAPI void mal_stack_destroy(mal_Stack *stack) {
-	mal_raw_free(stack->start, stack->capacity);
+MALAPI int mal_stack_destroy(mal_Stack *stack) {
+	int ret = mal_raw_free(stack->start, stack->capacity);
+	if(MAL_INVALID(ret)) MAL_ERROR_RETURN(MAL_ERROR);
 	stack->start = 0;
 	stack->number_of_taken_slots = 0;
 	stack->slot_size = 0;
 	stack->capacity = 0;
+	return MAL_SUCCESS;
 }
 
 MALAPI mal_General_Stack mal_general_stack_create(size_t capacity) {
 	mal_General_Stack stack = {0};
 	stack.start = mal_raw_alloc(capacity);
-	if(stack.start == 0) return stack; 
+	if(MAL_INVALID(stack.start)) MAL_ERROR_RETURN(stack); 
 	stack.tos = stack.start;
 	stack.capacity = mal_ceil_to_page_boundary(capacity);;
-	
 	return stack;
 }
 
 MALAPI void *mal_general_stack_alloc(mal_General_Stack *stack, size_t size) {
 	size_t real_size = size + sizeof(size_t);
 	
-	if(stack->size + real_size > stack->capacity) return 0;
+	if(stack->size + real_size > stack->capacity) MAL_ERROR_RETURN(MAL_ERROR);
 	
 	void *temp = stack->tos;
 	stack->tos = (byte *)stack->tos + size;
@@ -364,12 +369,14 @@ MALAPI void mal_general_stack_free(mal_General_Stack *stack) {
 	stack->size -= ((byte *)stack->tos - (byte *)temp);
 }
  
-MALAPI void mal_general_stack_destroy(mal_General_Stack *stack) {
-	mal_raw_free(stack->start, stack->capacity);
+MALAPI int mal_general_stack_destroy(mal_General_Stack *stack) {
+	int ret = mal_raw_free(stack->start, stack->capacity);
+	if(MAL_INVALID(ret)) MAL_ERROR_RETURN(MAL_ERROR);
 	stack->start = 0;
 	stack->tos = 0;
 	stack->size = 0;
 	stack->capacity = 0;
+	return MAL_SUCCESS;
 }
 
 // TODO: Remove these functions (just for testing)
@@ -386,11 +393,8 @@ void mal_print(void *allocator, int num_slots) {
 
 #endif //MAL_IMPLEMENTATION
 
-// TODO: Handle all errors uniformly for all OS. Maybe introduce explicit MAL error handling system.
 // TODO: Maybe memset allocated addresses to zero?
 // TODO: Maybe memset things to zero when reset?
-// TODO: Think about what to do if mal_raw_alloc returns 0. Currently, zeroed type is returned.
-// TODO: Maybe introduce check for the case when OS page free fails.
 // TODO: Check if the given address is valid address that was allocated when using free.
 // TODO: Add padding when elements of particular size are allocated.
 // TODO: Allow arena and pool grow (maybe allow usage without passing sizes?, although
