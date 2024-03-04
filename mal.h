@@ -16,6 +16,16 @@
 #define MAL_MB(n) (1024*MAL_KB(n))
 #define MAL_GB(n) (1024*MAL_MB(n))
 
+// For now, OS specific functions return 0 on fail.
+#define MAL_ERROR 0
+#define MAL_VALID(ret)   ((ret) != MAL_ERROR)
+#define MAL_INVALID(ret) ((ret) == MAL_ERROR)
+#ifdef MAL_ERROR_ASSERT
+#define MAL_ERROR_RETURN(ret) assert(!"MAL_ERROR_ASSERT GUARD")
+#else
+#define MAL_ERROR_RETURN(ret) return (ret);
+#endif
+
 typedef unsigned char byte;
 
 typedef struct {
@@ -53,19 +63,19 @@ typedef struct {
 } mal_General_Stack;
 
 // OS dependent
-//===============================
+// ===============================
 MALAPI size_t mal_get_system_page_size();
 // Also does zero initialization.
 MALAPI void *mal_raw_alloc(size_t capacity);
 MALAPI int mal_raw_free(void *address, size_t length);
-//===============================
+// ===============================
 
 MALAPI size_t mal_ceil_to_page_boundary(size_t size);
 
 MALAPI mal_Arena mal_arena_create(size_t capacity);
 MALAPI void *mal_arena_alloc(mal_Arena *arena, size_t size);
 MALAPI void mal_arena_reset(mal_Arena *arena);
-MALAPI void mal_arena_destroy();
+MALAPI int mal_arena_destroy();
 
 // Pool uses relative addressing between free slots such that 0 represents
 // address of next element, -1 current, 1 second next, etc.
@@ -117,20 +127,22 @@ MALAPI size_t mal_get_system_page_size() {
 }
 
 MALAPI void *mal_raw_alloc(size_t capacity) {
-	// 0 on fail.
-	return VirtualAllocEx(GetCurrentProcess(),
-						  0,
-						  capacity,
-						  MEM_COMMIT | MEM_RESERVE,
-						  PAGE_READWRITE);
+	void *address = VirtualAllocEx(GetCurrentProcess(),
+								   0,
+								   capacity,
+								   MEM_COMMIT | MEM_RESERVE,
+								   PAGE_READWRITE);
+	if(address == 0) MAL_ERROR_RETURN(MAL_ERROR);
+	return address;
 }
 
 MALAPI int mal_raw_free(void *address, size_t length) {
-	// 0 on fail.
-	return VirtualFreeEx(GetCurrentProcess(),
-						 address,
-						 0, // Must be zero for MEM_RELEASE
-						 MEM_RELEASE);
+	int ret = VirtualFreeEx(GetCurrentProcess(),
+							address,
+							0,
+							MEM_RELEASE);
+	if(ret == 0) MAL_ERROR_RETURN(MAL_ERROR);
+	return ret;
 }
 
 #elif defined(__linux__)
@@ -142,21 +154,19 @@ MALAPI size_t mal_get_system_page_size() {
 	if(_mal_system_page_size != 0) return _mal_system_page_size;
 	
 	long size = sysconf(_SC_PAGESIZE);
-	assert(size > 0);
+	if(size < 0) MAL_ERROR_RETURN(MAL_ERROR);
 	_mal_system_page_size = (size_t)size;
 	return _mal_system_page_size;
 }
 
 MALAPI void *mal_raw_alloc(size_t capacity) {
 	void *addr = mmap(0, capacity, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-	if(addr == MAP_FAILED) addr = 0;
-	// 0 on fail.
+	if(addr == MAP_FAILED) MAL_ERROR_RETURN(MAL_ERROR);
 	return addr;
 }
 
 MALAPI int mal_raw_free(void *address, size_t length) {
-	// 0 on fail.
-	if(munmap(address, length) == -1) return 0;
+	if(munmap(address, length) == -1) MAL_ERROR_RETURN(MAL_ERROR);
 	return 1;
 }
 
@@ -172,13 +182,13 @@ MALAPI size_t mal_ceil_to_page_boundary(size_t size) {
 MALAPI mal_Arena mal_arena_create(size_t capacity){
 	mal_Arena arena = {0};
 	arena.start = mal_raw_alloc(capacity);
-	if(arena.start == 0) return arena;
+	if(MAL_INVALID(arena.start)) MAL_ERROR_RETURN(arena);
 	arena.capacity = mal_ceil_to_page_boundary(capacity);
 	return arena;
 }
 
 MALAPI void *mal_arena_alloc(mal_Arena *arena, size_t size) {
-	if(arena->size + size > arena->capacity) return 0;
+	if(arena->size + size > arena->capacity) MAL_ERROR_RETURN(MAL_ERROR);
 
 	void *item_address = (char *)arena->start + arena->size;
 	arena->size += size;
@@ -189,8 +199,9 @@ MALAPI void mal_arena_reset(mal_Arena *arena) {
 	arena->size = 0;
 }
 
-MALAPI void mal_arena_destroy(mal_Arena *arena) {
-	mal_raw_free(arena->start, arena->capacity);
+MALAPI int mal_arena_destroy(mal_Arena *arena) {
+	int ret = mal_raw_free(arena->start, arena->capacity);
+	if(MAL_INVALID(ret)) return MAL_ERROR;
 	arena->start = 0;
 	arena->size = 0;
 	arena->capacity = 0;
