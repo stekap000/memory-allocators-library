@@ -7,7 +7,7 @@ Library is written as header only library (__stb__ style) with additional flags.
 ### Current list of allocators:
 - __Arena__ - Block of memory. Allocation just fills space in order. Free can only be done on the whole block.
 - __Pool__ - Memory is divided into slots of the same size. Allocation reserves one slot. Free can be done on individual slots.
-- __General Pool__ - Not yet implemented
+- __General Pool__ - Not yet implemented (this one is least important because malloc is always there as a general solution, but will be implemented at some point probably with AVL trees).
 - __Stack__ - Memory is divided into slots of the same size, but allocation and freeing behave as stack functions push and pop.
 - __General Stack__ - Similar to Stack, but does not contain fixed sized slots. Instead, allocated piece can be of arbitrary size.
 

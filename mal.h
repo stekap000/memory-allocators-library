@@ -46,6 +46,7 @@ typedef struct {
 typedef struct {
 	void *start;
 	void *free_start;
+	size_t size;
 	size_t capacity;
 } mal_General_Pool;
 
@@ -277,7 +278,7 @@ MALAPI int mal_pool_destroy(mal_Pool *pool) {
 
 MALAPI mal_General_Pool mal_general_create(size_t capacity) {
 	MAL_NOT_IMPLEMENTED("General allocator create is not implemented yet");
-	return (mal_General_Pool){};
+	return (mal_General_Pool){0};
 }
 
 MALAPI void *mal_general_alloc(mal_General_Pool *general_pool, size_t size) {
