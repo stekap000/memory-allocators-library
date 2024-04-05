@@ -90,6 +90,7 @@ MALAPI void mal_pool_reset(mal_Pool *pool);
 MALAPI void mal_pool_free(mal_Pool *pool, void *address);
 MALAPI int mal_pool_destroy(mal_Pool *pool);
 
+// TODO: Probably implement with AVL and buckets???
 MALAPI mal_General_Pool mal_general_create(size_t capacity);
 MALAPI void *mal_general_alloc(mal_General_Pool *general_pool, size_t size);
 MALAPI void *mal_general_realloc();
